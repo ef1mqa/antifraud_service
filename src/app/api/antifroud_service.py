@@ -1,11 +1,18 @@
-from fastapi import APIRouter, Body
+from fastapi import APIRouter, Body, Depends
+import asyncio
+import json
+import redis.asyncio as redis
+
 from app.schemas import UserCheck, AntifroudRepsonse
 from app.services.checks import check_user
+from app.db.redis_client import get_redis
+from app.services.cache_key import make_user_check_key
 
 router = APIRouter(
     prefix="/antifroud_service",
     tags=["system"],
 )
+
 
 @router.post("/check", response_model=AntifroudRepsonse)
 async def antifroud_checking(
@@ -26,10 +33,22 @@ async def antifroud_checking(
                 },
             ],
         }
-    )
+    ),
+    r: redis.Redis = Depends(get_redis),
 ) -> AntifroudRepsonse:
+    key = make_user_check_key(data)
+
+    # 1. Читаем из Redis асинхронно
+    cached = await r.get(key)
+    if cached is not None:
+        cached_dict = json.loads(cached)
+        return AntifroudRepsonse(**cached_dict)
+
+    # 2. Считаем результат (с задержкой 3 сек)
+    await asyncio.sleep(3)
     result = check_user(data)
+
+    # 3. Пишем в Redis с TTL (1 час)
+    await r.setex(key, 3600, json.dumps(result, ensure_ascii=False))
+
     return AntifroudRepsonse(**result)
-
-
-

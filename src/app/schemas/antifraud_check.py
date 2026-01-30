@@ -1,6 +1,6 @@
 from datetime import date
 from typing import List
-from pydantic import BaseModel, field_validator, ConfigDict
+from pydantic import BaseModel, field_validator
 
 
 class LoanHistoryItem(BaseModel):
@@ -23,27 +23,6 @@ class UserCheck(BaseModel):
     birth_date: date
     phone_number: str
     loans_history: List[LoanHistoryItem]
-
-    model_config = ConfigDict(
-        json_schema_extra={
-            "example": {
-                "birth_date": "30.01.1994",
-                "phone_number": "+79876543210",
-                "loans_history": [
-                    {
-                        "amount": 10000,
-                        "loan_data": "30.01.2010",
-                        "is_closed": True,
-                    },
-                    {
-                        "amount": 15000,
-                        "loan_data": "28.02.2011",
-                        "is_closed": True,
-                    },
-                ],
-            }
-        }
-    )
 
     @field_validator("birth_date", mode="before")
     @classmethod
