@@ -17,7 +17,7 @@ router = APIRouter(
 @router.post("/check", response_model=AntifroudRepsonse)
 async def antifroud_checking(
     data: UserCheck = Body(
-        example={
+        examples={
             "birth_date": "30.01.1994",
             "phone_number": "+79876543210",
             "loans_history": [
