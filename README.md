@@ -45,12 +45,12 @@
 
 ## Технологии
 
-- **FastAPI** + **Pydantic** — веб‑фреймворк и валидация входных данных.
-- **Redis** — кэширование результатов проверок.
-- **Pytest** — тесты сервиса.
-- **Prometheus** — сбор метрик сервиса (эндпоинт `/metrics`).
-- **Grafana** — визуализация метрик Prometheus.
-- **Docker / docker-compose** — контейнеризация сервиса, Redis, Prometheus и Grafana.
+- FastAPI + Pydantic — веб‑фреймворк и валидация входных данных.
+- Redis — кэширование результатов проверок.
+- Pytest — тесты сервиса.
+- Prometheus — сбор метрик сервиса (эндпоинт `/metrics`).
+- Grafana — визуализация метрик Prometheus.
+- Docker / docker-compose — контейнеризация сервиса, Redis, Prometheus и Grafana.
 
 ## Запуск
 
@@ -64,36 +64,37 @@ uv sync
 
 # Запуск сервиса локально
 uv run src/run.py
+```
+
 После запуска:
 
-Swagger UI: http://localhost:8080/docs
+- Swagger UI: http://localhost:8080/docs
+- Эндпоинт проверки: POST http://localhost:8080/antifroud_service/check
+- Метрики Prometheus: http://localhost:8080/metrics
 
-Эндпоинт проверки: POST http://localhost:8080/antifroud_service/check
+> Для локального запуска без Docker Redis должен быть доступен по тому же хосту и порту, что и в конфигурации (`REDIS_HOST` и порт 6379).
 
-Метрики Prometheus: http://localhost:8080/metrics
+### Запуск всего окружения через Docker
 
-Для локального запуска без Docker Redis должен быть доступен по тому же хосту и порту, что и в конфигурации (REDIS_HOST и порт 6379).
-
-Запуск всего окружения через Docker
-bash
+```bash
 docker-compose up --build
+```
+
 После старта контейнеров:
 
-сервис антифрода: http://localhost:8080
+- сервис антифрода: http://localhost:8080
+- Swagger UI: http://localhost:8080/docs
+- метрики сервиса: http://localhost:8080/metrics
+- Prometheus: http://localhost:9090
+- Grafana: http://localhost:3000
 
-Swagger UI: http://localhost:8080/docs
+## Примеры запросов
 
-метрики сервиса: http://localhost:8080/metrics
+### Запрос, который проходит проверки
 
-Prometheus: http://localhost:9090
-
-Grafana: http://localhost:3000
-
-Примеры запросов
-Запрос, который проходит проверки
 Тело запроса:
 
-json
+```json
 {
   "birth_date": "30.01.1994",
   "phone_number": "+79876543210",
@@ -110,17 +111,22 @@ json
     }
   ]
 }
+```
+
 Пример запроса из bash:
 
-bash
+```bash
 curl -X POST "http://localhost:8080/antifroud_service/check" \
   -H "Content-Type: application/json" \
   -d '{"birth_date":"30.01.1994","phone_number":"+79876543210","loans_history":[{"amount":10000,"loan_data":"30.01.2010","is_closed":true},{"amount":15000,"loan_data":"28.02.2011","is_closed":true}]}' \
   -w '\n time_total: %{time_total}s\n'
-Запрос, который не проходит проверки
+```
+
+### Запрос, который не проходит проверки
+
 Тело запроса:
 
-json
+```json
 {
   "birth_date": "30.01.2009",
   "phone_number": "79876543210",
@@ -137,36 +143,43 @@ json
     }
   ]
 }
+```
+
 Пример запроса из bash:
 
-bash
+```bash
 curl -X POST "http://localhost:8080/antifroud_service/check" \
   -H "Content-Type: application/json" \
   -d '{"birth_date":"30.01.2009","phone_number":"79876543210","loans_history":[{"amount":10000,"loan_data":"30.01.2010","is_closed":true},{"amount":15000,"loan_data":"28.02.2011","is_closed":false}]}' \
   -w '\n time_total: %{time_total}s\n'
+```
+
 Такие же тела можно использовать в Swagger UI (http://localhost:8080/docs), выбрав эндпоинт POST /antifroud_service/check и подставив JSON в поле Request body.
 
-Метрики и дашборд Grafana
-Сервис экспонирует Prometheus‑метрики по адресу /metrics.
+## Метрики и дашборд Grafana
+
+Сервис экспонирует Prometheus‑метрики по адресу `/metrics`.
 
 Ключевые метрики:
 
-http_requests_total — количество запросов с лейблами handler, method, status.
-
-http_request_duration_seconds — гистограмма времени ответа с разбивкой по handler и method.
+- `http_requests_total` — количество запросов с лейблами `handler`, `method`, `status`.
+- `http_request_duration_seconds` — гистограмма времени ответа с разбивкой по `handler` и `method`.
 
 В Grafana можно собрать дашборд:
 
-Панель 1 — количество запросов по статусам:
+- панель 1 — количество запросов по статусам:
 
-text
-sum by (status) (http_requests_total)
-Панель 2 — 95‑й перцентиль времени ответа по хендлерам/методам:
+  ```promql
+  sum by (status) (http_requests_total)
+  ```
 
-text
-histogram_quantile(
-  0.95,
-  sum by (le, handler, method) (
-    rate(http_request_duration_seconds_bucket[1m])
+- панель 2 — 95‑й перцентиль времени ответа по хендлерам/методам:
+
+  ```promql
+  histogram_quantile(
+    0.95,
+    sum by (le, handler, method) (
+      rate(http_request_duration_seconds_bucket[1m])
+    )
   )
-)
+  ```
